@@ -7,7 +7,7 @@ import subprocess
 
 
 def get_script_dir():
-    return os.path.dirname(os.path.abspath(__file__))
+    return os.getcwd()
 
 
 def get_output_dir():
