@@ -33,6 +33,7 @@ def resolve_yt_dlp():
 
 
 def download(url, fmt, output_dir, yt_dlp_exe):
+    url = url.replace('www.', '')
     args = [
         yt_dlp_exe,
         '--color', 'always',
@@ -40,9 +41,9 @@ def download(url, fmt, output_dir, yt_dlp_exe):
         '-o', '%(title)s.%(ext)s',
         '-t', fmt,
         '--embed-metadata',
-        '--parse-metadata', '%(artist,creator,uploader)s:%(meta_artist)s',
-        '--parse-metadata', '%(album,playlist_title,playlist)s:%(meta_album)s',
-        '--parse-metadata', '%(playlist_index)s:%(meta_track)s',
+        '--parse-metadata', '%(artist,creator,uploader|)s:%(meta_artist)s',
+        '--parse-metadata', '%(album,playlist_title,playlist|)s:%(meta_album)s',
+        '--parse-metadata', '%(playlist_index|)s:%(meta_track)s',
         url,
     ]
     result = subprocess.run(args)
