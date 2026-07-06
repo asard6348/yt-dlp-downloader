@@ -22,7 +22,7 @@ def resolve_yt_dlp():
         return on_path
 
     script_dir = get_script_dir()
-    for candidate in ('yt-dlp.exe', 'yt-dlp'):
+    for candidate in (('yt-dlp.exe') if os.name == 'nt' else ('yt-dlp_linux', 'yt-dlp-linux', 'yt-dlp')):
         local_path = os.path.join(script_dir, candidate)
         if os.path.isfile(local_path):
             return local_path
