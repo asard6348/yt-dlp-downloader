@@ -54,6 +54,7 @@ def remove_new_files(output_dir, before):
     after = set(os.listdir(output_dir))
     removed = []
     for name in after - before:
+        if not name.endswith(".part"): continue
         path = os.path.join(output_dir, name)
         try:
             if os.path.isdir(path):
