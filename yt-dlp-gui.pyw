@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 #CONFIGURATION
-fileformats = ["webm", "mkv", "mp4", "aac", "mp3"]
+fileformats = ["webm", "mkv", "aac", "mp4", "mp3"]
 metadata = True #Whether to keep metadata in files by default
 ytdlplocate = "path" #Location of yt-dlp. | Options: *'path'*, 'script', '(YOUR PATH)'
 
@@ -141,6 +141,7 @@ def console_overwrite(text, segments):
 
 def console_finish(console):
     console['button'].config(text="Close", command=console['window'].destroy)
+    console['text'].after(0, console_append, console['text'], [(None, '[Process done]')])
 
 def download_gui(link, place, formattie, button, proc_holder):
     if formattie.curselection():
