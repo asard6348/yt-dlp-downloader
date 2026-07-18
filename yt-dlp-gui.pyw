@@ -430,7 +430,7 @@ def main():
                         co.write(wr)
                     con['button'].config(text='Close')
                 else:
-                    con['win'].destroy()
+                    con['window'].destroy()
             con['button'].config(command=lambda:sav(con['text'].get("1.0","end-1c")))
             con['text'].edit_modified(False)
             def coc(event):
