@@ -18,6 +18,7 @@ import threading
 import tkinter
 import tkinter.filedialog
 import tkinter.messagebox
+import tkinter.ttk
 
 if sys.stdout is None:
     sys.stdout = open(os.devnull, 'w')
@@ -35,12 +36,16 @@ if not os.path.isfile(configs):
     with open(configs, 'w') as c:
         c.write('{\n   "format":"'+fileformats[0]+'",\n   "output":"'+output+'",\n   "metadata":'+str(metadata).lower()+',\n   "ytdlplocate":"'+ytdlplocate+'"\n}')
 
-with open(configs) as c:
-    jsconfig = json.loads(c.read().replace('\\', '/'))
-    fileformats.insert(0, fileformats.pop(fileformats.index(jsconfig['format'])))
-    output = jsconfig['output']
-    metadata = jsconfig['metadata']
-    ytdlplocate = jsconfig['ytdlplocate']
+try:
+    with open(configs) as c:
+        jsconfig = json.loads(c.read().replace('\\', '/'))
+        fileformats.insert(0, fileformats.pop(fileformats.index(jsconfig['format'])))
+        output = jsconfig['output']
+        metadata = jsconfig['metadata']
+        ytdlplocate = jsconfig['ytdlplocate']
+except Exception as e:
+    print(e)
+    pass
 
 
 defaultlocation = joinp(cwd, "Output") if output == "script" else output
@@ -104,35 +109,43 @@ def sgr_apply(params, fg, bold):
             bold = True
     return fg, bold
 
-def open_console_window(proc_holder):
+def open_console_window(proc_holder, edit=False):
     console = {}
 
-    global win
     win = tkinter.Toplevel()
     win.title("yt-dlp output")
     win.geometry("700x400")
 
     def on_close(console):
         if console['button'].cget('text') != "Close":
-            close = tkinter.messagebox.askyesno(title="Youtube Downloader - Cancelation", message="Would you like to interrupt this process?")
+            close = tkinter.messagebox.askyesno(title="Youtube Downloader - Cancelation", message="Would you like to interrupt this process?" if not edit else "Would you like to discard changes?")
             if close:
-                interrupt_gui(proc_holder, console)
+                if edit:
+                    win.destroy()
+                else:
+                    interrupt_gui(proc_holder, console)
         else:
             win.destroy()
     
     win.protocol("WM_DELETE_WINDOW", lambda:on_close(console))
-
-    button = tkinter.Button(win, text="Interrupt", command=lambda:interrupt_gui(proc_holder, console))
+    
+    if edit:
+        button = tkinter.Button(win, text="Close")
+    else:
+        button = tkinter.Button(win, text="Interrupt", command=lambda:interrupt_gui(proc_holder, console))
     button.pack(side=tkinter.BOTTOM, fill=tkinter.X)
 
     scrollbar = tkinter.Scrollbar(win)
     scrollbar.pack(side=tkinter.RIGHT, fill=tkinter.Y)
 
-    text = tkinter.Text(win, state=tkinter.DISABLED, bg="black", fg="white", wrap=tkinter.NONE, font="TkFixedFont", yscrollcommand=scrollbar.set)
+    if edit:
+        text = tkinter.Text(win, wrap=tkinter.NONE, font="TkFixedFont", yscrollcommand=scrollbar.set)
+    else:
+        text = tkinter.Text(win, state=tkinter.DISABLED, bg="black", fg="white", wrap=tkinter.NONE, font="TkFixedFont", yscrollcommand=scrollbar.set)
     text.pack(side=tkinter.LEFT, fill=tkinter.BOTH, expand=True)
     scrollbar.config(command=text.yview)
 
-    setup_ansi_tags(text)
+    if not edit: setup_ansi_tags(text)
 
     win.lift()
 
@@ -403,6 +416,33 @@ def main():
     tkinter.Button(metadataframe, text="No", command=nu).grid(column=2, row=1, sticky="WE")
 
     metadataframe.pack(fill=tkinter.X)
+
+    tkinter.ttk.Separator().pack(fill=tkinter.X)
+
+    if os.path.exists(configs):
+        def opc(*args):
+            con = open_console_window(configholder, True)
+            with open(configs) as c:
+                con['text'].insert(tkinter.END, c.read())
+            def sav(wr, *args):
+                if con['button'].cget('text') == "Save":
+                    with open(configs, 'w') as co:
+                        co.write(wr)
+                    con['button'].config(text='Close')
+                else:
+                    con['win'].destroy()
+            con['button'].config(command=lambda:sav(con['text'].get("1.0","end-1c")))
+            con['text'].edit_modified(False)
+            def coc(event):
+                if con['text'].edit_modified():
+                    con['button'].config(text='Save')
+            con['text'].bind("<<Modified>>", coc)
+            
+        configholder = {'process': None, 'interrupted': False}
+        openconfig = tkinter.Button(text="Open config file", command=opc)
+        openconfig.pack(fill=tkinter.X)
+
+    tkinter.ttk.Separator().pack(fill=tkinter.X)
 
     downl = tkinter.Button(text="Download", font=(("Arial", 15, "bold")))
     downl.config(command=lambda:download_gui(urlthing, outputthing, formatthing, downl, proc_holder))
