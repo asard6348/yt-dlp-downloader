@@ -36,7 +36,7 @@ if not os.path.isfile(configs):
         c.write('{\n   "format":"'+fileformats[0]+'",\n   "output":"'+output+'",\n   "metadata":'+str(metadata).lower()+',\n   "ytdlplocate":"'+ytdlplocate+'"\n}')
 
 with open(configs) as c:
-    jsconfig = json.loads(c.read())
+    jsconfig = json.loads(c.read().replace('\\', '/'))
     fileformats.insert(0, fileformats.pop(fileformats.index(jsconfig['format'])))
     output = jsconfig['output']
     metadata = jsconfig['metadata']
