@@ -389,6 +389,9 @@ def main():
     downl.config(command=lambda:download_gui(urlthing, outputthing, formatthing, downl, proc_holder))
     downl.pack(expand=True, fill=tkinter.X)
 
+    root.focus_force()
+    urlthing.focus_set()
+    
     root.mainloop()
 
 
