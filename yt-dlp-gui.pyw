@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
 #CONFIGURATION
-fileformats = ["webm", "mkv", "aac", "mp4", "mp3"]
+fileformats = ["webm", "mkv", "aac", "mp4", "mp3"] #Default formats sequence
 metadata = True #Whether to keep metadata in files by default
 ytdlplocate = "path" #Location of yt-dlp. | Options: *'path'*, 'script', '(YOUR PATH)'
+output = "script" #Location of extraction output | 'script' by default makes 'Output' folder in the current working directory
 
 
 import os
 import io
 import sys
 import shutil
+import json
 import signal
 import subprocess
 import threading
@@ -23,8 +25,25 @@ if sys.stderr is None:
     sys.stderr = open(os.devnull, 'w')
 
 joinp = os.path.join
+cwd = os.getcwd()
 
-defaultlocation = joinp(os.getcwd(), "Output")
+
+configs = joinp(cwd, "gui-config.json")
+
+if not os.path.isfile(configs):
+    configs = open(configs, 'x').name
+    with open(configs, 'w') as c:
+        c.write('{\n   "format":"'+fileformats[0]+'",\n   "output":"'+output+'",\n   "metadata":'+str(metadata).lower()+',\n   "ytdlplocate":"'+ytdlplocate+'"\n}')
+
+with open(configs) as c:
+    jsconfig = json.loads(c.read())
+    fileformats.insert(0, fileformats.pop(fileformats.index(jsconfig['format'])))
+    output = jsconfig['output']
+    metadata = jsconfig['metadata']
+    ytdlplocate = jsconfig['ytdlplocate']
+
+
+defaultlocation = joinp(cwd, "Output") if output == "script" else output
 
 ANSI_BASE_HEX = ['#000000', '#cd0000', '#00cd00', '#cdcd00', '#5c9fd4', '#cd00cd', '#00cdcd', '#e5e5e5']
 ANSI_BRIGHT_HEX = ['#7f7f7f', '#ff5555', '#55ff55', '#ffff55', '#5555ff', '#ff55ff', '#55ffff', '#ffffff']
