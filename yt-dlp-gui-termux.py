@@ -488,6 +488,10 @@ try:
         main()
 
 
+except KeyboardInterrupt:
+    input("[Close termux-x11?]")
+    subprocess.run(["pkill", "termux-x11"])
+    exit()
 except Exception as e:
     print(e)
 finally:
