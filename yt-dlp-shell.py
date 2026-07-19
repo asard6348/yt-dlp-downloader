@@ -17,25 +17,30 @@ def get_output_dir():
 
 
 def resolve_yt_dlp():
+    try:
+        import yt_dlp
+        return [sys.executable, "-m", "yt_dlp"]
+    except ImportError:
+        pass
+    
     on_path = shutil.which('yt-dlp')
     if on_path:
-        return on_path
+        return [on_path]
 
     script_dir = get_script_dir()
     for candidate in (('yt-dlp.exe', 'yt-dlp_arm64.exe', 'yt-dlp_x86.exe') if os.name == 'nt' else ('yt-dlp', 'yt-dlp_linux', 'yt-dlp_linux_aarch64')):
         local_path = os.path.join(script_dir, candidate)
         if os.path.isfile(local_path):
-            return local_path
+            return [local_path]
 
     raise FileNotFoundError(
-        f"yt-dlp isn't on PATH, and no yt-dlp.exe was found next to this script ({script_dir})."
+        f"yt-dlp could not be imported, yt-dlp isn't on PATH, and no yt-dlp.exe was found next to this script ({script_dir})."
     )
 
 
 def download(url, fmt, output_dir, yt_dlp_exe):
     url = url.replace('www.', '')
-    args = [
-        yt_dlp_exe,
+    args = yt_dlp_exe+[
         '--color', 'always',
         '-P', output_dir,
         '-o', '%(title)s.%(ext)s',

@@ -4,7 +4,7 @@ try:
     #CONFIGURATION
     fileformats = ["webm", "mkv", "aac", "mp4", "mp3"] #Default formats sequence
     metadata = True #Whether to keep metadata in files by default
-    ytdlplocate = "path" #Location of yt-dlp. | Options: *'path'*, 'script', '(YOUR PATH)'
+    ytdlplocate = "lib" #Location of yt-dlp. | Options: *'lib'*, 'path', 'script', '(YOUR PATH)'
     output = "script" #Location of extraction output | 'script' by default makes 'Output' folder in the current working directory
 
 
@@ -55,25 +55,36 @@ try:
     ANSI_BRIGHT_HEX = ['#7f7f7f', '#ff5555', '#55ff55', '#ffff55', '#5555ff', '#ff55ff', '#55ffff', '#ffffff']
 
 
-    if ytdlplocate == "path":
-        on_path = shutil.which('yt-dlp')
-        if on_path:
-            ytdlplocate = on_path
-        else:
-            ytdlplocate = "script"
-            print("yt-dlp isn't on PATH. Fallbacking to script location.")
+    if ytdlplocate == "lib":
+        try:
+            import yt_dlp
+            ytdlplocate = [sys.executable, "-m", "yt_dlp"]
+        except ImportError:
+            ytdlplocate = "path"
+            print("yt-dlp lib could not be imported.")
+    else:
+        if ytdlplocate == "path":
+            on_path = shutil.which('yt-dlp')
+            if on_path:
+                ytdlplocate = on_path
+            else:
+                ytdlplocate = "script"
+                print("yt-dlp isn't on PATH. Fallbacking to script location.")
 
-    if ytdlplocate == "script":
-        ytdlplocate = os.path.dirname(os.path.abspath(__file__))
-        for candidate in (('yt-dlp.exe', 'yt-dlp_arm64.exe', 'yt-dlp_x86.exe') if os.name == 'nt' else ('yt-dlp', 'yt-dlp_linux', 'yt-dlp_linux_aarch64')):
-            local_path = joinp(ytdlplocate, candidate)
-            if os.path.isfile(local_path):
-                ytdlplocate = local_path
-                break
-        if not os.path.isfile(ytdlplocate) or ytdlplocate == "script":
-            print("yt-dlp isn't in the script location.")
-            raise Exception("yt-dlp could not be found in PATH environment variable, neither in the script current working directory, neither in the user-specified path. Do you have it installed correctly? (https://github.com/yt-dlp/yt-dlp)")
+        if ytdlplocate == "script":
+            ytdlplocate = os.path.dirname(os.path.abspath(__file__))
+            for candidate in (('yt-dlp.exe', 'yt-dlp_arm64.exe', 'yt-dlp_x86.exe') if os.name == 'nt' else ('yt-dlp', 'yt-dlp_linux', 'yt-dlp_linux_aarch64')):
+                local_path = joinp(ytdlplocate, candidate)
+                if os.path.isfile(local_path):
+                    ytdlplocate = local_path
+                    break
+            if not os.path.isfile(ytdlplocate) or ytdlplocate == "script":
+                print("yt-dlp isn't in the script location.")
+                raise Exception("yt-dlp could not be found in PATH environment variable, neither in the script current working directory, neither in the user-specified path. Do you have it installed correctly? (https://github.com/yt-dlp/yt-dlp)")
 
+        ytdlplocate = [ytdlplocate]
+
+    print(f'Using yt-dlp at {ytdlplocate}.')
 
 
     def bring_picker(widget):
@@ -219,7 +230,7 @@ try:
 
     def download(url, fmt, output_dir, yt_dlp_exe, proc_holder, console):
         url = url.replace('www.', '')
-        args = [yt_dlp_exe,
+        args = yt_dlp_exe+[
                 '--color', 'always',
                 '-P', output_dir
                 ]
@@ -312,6 +323,7 @@ try:
         after = set(os.listdir(output_dir))
         removed = []
         for name in after - before:
+            if not name.endswith(".part"): continue
             path = joinp(output_dir, name)
             try:
                 if os.path.isdir(path):
