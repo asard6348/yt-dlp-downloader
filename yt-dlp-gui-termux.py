@@ -474,7 +474,7 @@ try:
         root.focus_force()
         urlthing.focus_set()
 
-        print("(Open termux-x11 app. Close button or CTRL+C to end process.)")
+        print("(Open termux-x11 app. Tap close button to end process.)")
         try:
             root.mainloop()
         except KeyboardInterrupt:
