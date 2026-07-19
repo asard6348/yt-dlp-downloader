@@ -20,6 +20,12 @@ try:
     import tkinter.filedialog
     import tkinter.messagebox
     import tkinter.ttk
+    
+
+    subprocess.Popen(["termux-x11", ":1"])
+    input("[Enter after ready.]")
+    os.environ["DISPLAY"] = ":1"
+    
 
     if sys.stdout is None:
         sys.stdout = open(os.devnull, 'w')
@@ -456,6 +462,9 @@ try:
             openconfig = tkinter.Button(text="Open config file", command=opc)
             openconfig.pack(fill=tkinter.X)
 
+        tkinter.Button(text="Close", command=root.destroy).pack(fill=tkinter.X)
+
+        tkinter.ttk.Separator().pack(fill=tkinter.X)
         tkinter.ttk.Separator().pack(fill=tkinter.X)
 
         downl = tkinter.Button(text="Download", font=(("Arial", 15, "bold")))
@@ -464,8 +473,14 @@ try:
 
         root.focus_force()
         urlthing.focus_set()
-        
-        root.mainloop()
+
+        print("(Open termux-x11 app. Close button or CTRL+C to end process.)")
+        try:
+            root.mainloop()
+        except KeyboardInterrupt:
+            root.destroy()
+        except Exception:
+            raise
 
 
 
@@ -474,4 +489,8 @@ try:
 
 
 except Exception as e:
-    tkinter.messagebox.showerror("Error", str(e))
+    print(e)
+finally:
+    input("[Close termux-x11?]")
+    subprocess.run(["pkill", "termux-x11"])
+    
