@@ -62,27 +62,27 @@ try:
         except ImportError:
             ytdlplocate = "path"
             print("yt-dlp lib could not be imported.")
-    else:
-        if ytdlplocate == "path":
-            on_path = shutil.which('yt-dlp')
-            if on_path:
-                ytdlplocate = on_path
-            else:
-                ytdlplocate = "script"
-                print("yt-dlp isn't on PATH. Fallbacking to script location.")
+    
+    if ytdlplocate == "path":
+        on_path = shutil.which('yt-dlp')
+        if on_path:
+            ytdlplocate = on_path
+        else:
+            ytdlplocate = "script"
+            print("yt-dlp isn't on PATH. Fallbacking to script location.")
 
-        if ytdlplocate == "script":
-            ytdlplocate = os.path.dirname(os.path.abspath(__file__))
-            for candidate in (('yt-dlp.exe', 'yt-dlp_arm64.exe', 'yt-dlp_x86.exe') if os.name == 'nt' else ('yt-dlp', 'yt-dlp_linux', 'yt-dlp_linux_aarch64')):
-                local_path = joinp(ytdlplocate, candidate)
-                if os.path.isfile(local_path):
-                    ytdlplocate = local_path
-                    break
-            if not os.path.isfile(ytdlplocate) or ytdlplocate == "script":
-                print("yt-dlp isn't in the script location.")
-                raise Exception("yt-dlp could not be found in PATH environment variable, neither in the script current working directory, neither in the user-specified path. Do you have it installed correctly? (https://github.com/yt-dlp/yt-dlp)")
+    if ytdlplocate == "script":
+        ytdlplocate = os.path.dirname(os.path.abspath(__file__))
+        for candidate in (('yt-dlp.exe', 'yt-dlp_arm64.exe', 'yt-dlp_x86.exe') if os.name == 'nt' else ('yt-dlp', 'yt-dlp_linux', 'yt-dlp_linux_aarch64')):
+            local_path = joinp(ytdlplocate, candidate)
+            if os.path.isfile(local_path):
+                ytdlplocate = local_path
+                break
+        if not os.path.isfile(ytdlplocate) or ytdlplocate == "script":
+            print("yt-dlp isn't in the script location.")
+            raise Exception("yt-dlp could not be found in PATH environment variable, neither in the script current working directory, neither in the user-specified path. Do you have it installed correctly? (https://github.com/yt-dlp/yt-dlp)")
 
-        ytdlplocate = [ytdlplocate]
+    if not isinstance(ytdlplocate, list): ytdlplocate = [ytdlplocate]
 
     print(f'Using yt-dlp at {ytdlplocate}.')
 
