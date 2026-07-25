@@ -1,7 +1,7 @@
 --- Yt-dlp Downloader ---
 
 
-Use these scripts for easy access to yt-dlp and to download most Youtube videos the user-friendly way.
+Use these scripts for easy access to yt-dlp and to download most videos and audios from thousands of platforms and websites the user-friendly way.
 
 For basic use is recommended the shell version, for more advanced the GUI with adjustable JSON config file (gui-config).
 
