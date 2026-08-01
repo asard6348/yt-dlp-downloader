@@ -3,8 +3,8 @@
 try:
     #CONFIGURATION
     fileformats = ["webm", "mkv", "aac", "mp4", "mp3"] #Default formats sequence
-    metadata = True #Whether to keep metadata in files by default
-    ytdlplocate = "lib" #Location of yt-dlp. | Options: *'lib'*, 'path', 'script', '(YOUR PATH)'
+    metadata = True #Whether to keep metadata in files by default | True by default
+    ytdlplocate = "lib" #Location of yt-dlp | Options: *'lib'*, 'path', 'script', '(YOUR PATH)'
     output = "script" #Location of extraction output | 'script' by default makes 'Output' folder in the current working directory
 
 
@@ -45,7 +45,7 @@ try:
             metadata = jsconfig['metadata']
             ytdlplocate = jsconfig['ytdlplocate']
     except Exception as e:
-        print(e)
+        print(f'Config file (shell-config.json) could not be read: {e}')
         pass
 
 
@@ -72,14 +72,12 @@ try:
             print("yt-dlp isn't on PATH. Fallbacking to script location.")
 
     if ytdlplocate == "script":
-        ytdlplocate = os.path.dirname(os.path.abspath(__file__))
-        for candidate in (('yt-dlp.exe', 'yt-dlp_arm64.exe', 'yt-dlp_x86.exe') if os.name == 'nt' else ('yt-dlp', 'yt-dlp_linux', 'yt-dlp_linux_aarch64')):
-            local_path = joinp(ytdlplocate, candidate)
-            if os.path.isfile(local_path):
+        for candidate in os.listdir(cwd):
+            absp = joinp(cwd, candidate)
+            if 'yt-dlp' in candidate and os.path.isfile(absp) and os.access(absp, os.X_OK):
                 ytdlplocate = local_path
                 break
         if not os.path.isfile(ytdlplocate) or ytdlplocate == "script":
-            print("yt-dlp isn't in the script location.")
             raise Exception("yt-dlp could not be found in PATH environment variable, neither in the script current working directory, neither in the user-specified path. Do you have it installed correctly? (https://github.com/yt-dlp/yt-dlp)")
 
     if not isinstance(ytdlplocate, list): ytdlplocate = [ytdlplocate]
