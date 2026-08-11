@@ -129,7 +129,7 @@ try:
 
         def on_close(console):
             if console['button'].cget('text') != "Close":
-                close = tkinter.messagebox.askyesno(title="Youtube Downloader - Cancelation", message="Would you like to interrupt this process?" if not edit else "Would you like to discard changes?")
+                close = tkinter.messagebox.askyesno(title="Yt-dlp Downloader - Cancelation", message="Would you like to interrupt this process?" if not edit else "Would you like to discard changes?")
                 if close:
                     if edit:
                         win.destroy()
@@ -356,7 +356,7 @@ try:
 
     def main():
         root = tkinter.Tk()
-        root.title("YouTube Downloader GUI")
+        root.title("Yt-dlp Downloader GUI")
         root.resizable(True, False)
 
         proc_holder = {'process': None, 'interrupted': False}
