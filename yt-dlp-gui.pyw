@@ -75,7 +75,7 @@ try:
         for candidate in os.listdir(cwd):
             absp = joinp(cwd, candidate)
             if 'yt-dlp' in candidate and os.path.isfile(absp) and os.access(absp, os.X_OK):
-                ytdlplocate = local_path
+                ytdlplocate = absp
                 break
         if not os.path.isfile(ytdlplocate) or ytdlplocate == "script":
             raise Exception("yt-dlp could not be found in PATH environment variable, neither in the script current working directory, neither in the user-specified path. Do you have it installed correctly? (https://github.com/yt-dlp/yt-dlp)")
