@@ -357,7 +357,7 @@ try:
     def main():
         root = tkinter.Tk()
         root.title("Yt-dlp Downloader GUI")
-        root.resizable(True, False)
+        root.resizable(False, False)
 
         proc_holder = {'process': None, 'interrupted': False}
 
