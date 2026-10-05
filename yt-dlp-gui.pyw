@@ -10,6 +10,7 @@ try:
 
     import os
     import io
+    import re
     import sys
     import shutil
     import json
@@ -45,7 +46,7 @@ try:
             metadata = jsconfig['metadata']
             ytdlplocate = jsconfig['ytdlplocate']
     except Exception as e:
-        print(f'Config file (shell-config.json) could not be read: {e}')
+        print(f'Config file (gui-config.json) could not be read: {e}')
         pass
 
 
@@ -55,10 +56,13 @@ try:
     ANSI_BRIGHT_HEX = ['#7f7f7f', '#ff5555', '#55ff55', '#ffff55', '#5555ff', '#ff55ff', '#55ffff', '#ffffff']
 
 
+    startup_message = None
+
     if ytdlplocate == "lib":
         try:
             import yt_dlp
             ytdlplocate = [sys.executable, "-m", "yt_dlp"]
+            startup_message = "Using imported yt-dlp library."
         except ImportError:
             ytdlplocate = "path"
             print("yt-dlp lib could not be imported.")
@@ -67,6 +71,7 @@ try:
         on_path = shutil.which('yt-dlp')
         if on_path:
             ytdlplocate = on_path
+            startup_message = f"Using yt-dlp on PATH: {on_path}"
         else:
             ytdlplocate = "script"
             print("yt-dlp isn't on PATH. Fallbacking to script location.")
@@ -76,20 +81,24 @@ try:
             absp = joinp(cwd, candidate)
             if 'yt-dlp' in candidate and os.path.isfile(absp) and os.access(absp, os.X_OK):
                 ytdlplocate = absp
+                startup_message = f"Using yt-dlp executable nearby: {absp}"
                 break
         if not os.path.isfile(ytdlplocate) or ytdlplocate == "script":
             raise Exception("yt-dlp could not be found in PATH environment variable, neither in the script current working directory, neither in the user-specified path. Do you have it installed correctly? (https://github.com/yt-dlp/yt-dlp)")
 
     if not isinstance(ytdlplocate, list): ytdlplocate = [ytdlplocate]
 
-    print(f'Using yt-dlp at {ytdlplocate}.')
+    if startup_message is None:
+        startup_message = f"Using yt-dlp at: {ytdlplocate[0]}"
+
+    print(startup_message)
 
 
     def bring_picker(widget):
         location = tkinter.filedialog.askdirectory()
         if location:
             widget.delete(0, tkinter.END)
-            widget.insert([0], location)
+            widget.insert(0, location)
 
     def setup_ansi_tags(text):
         for i in range(8):
@@ -317,11 +326,13 @@ try:
         return result
 
 
+    PARTIAL_RE = re.compile(r'(\.part(-Frag\d+)?|\.ytdl|\.temp)$')
+
     def remove_new_files(output_dir, before):
         after = set(os.listdir(output_dir))
         removed = []
         for name in after - before:
-            if not name.endswith(".part"): continue
+            if not PARTIAL_RE.search(name): continue
             path = joinp(output_dir, name)
             try:
                 if os.path.isdir(path):
@@ -395,7 +406,7 @@ try:
         outputtext.trace_add("write", textchange)
 
         outputthing = tkinter.Entry(locationframe, width=35)#, textvariable=outputtext)
-        outputthing.insert([0], defaultlocation)
+        outputthing.insert(0, defaultlocation)
         outputthing.grid(column=1, row=1, sticky="WE")
 
         getlocation = tkinter.Button(locationframe, text="Pick", width=5, command=lambda:bring_picker(outputthing))
