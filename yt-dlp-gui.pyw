@@ -2,10 +2,12 @@
 
 try:
     #CONFIGURATION
-    fileformats = ["webm", "mkv", "aac", "mp4", "mp3"] #Default formats sequence
+    fileformats = ["webm", "mkv", "aac", "mp4", "mp3", "m4a", "opus", "vorbis", "flac", "wav", "mov", "avi", "gif"] #Default formats sequence
     metadata = True #Whether to keep metadata in files by default | True by default
     ytdlplocate = "lib" #Location of yt-dlp | Options: *'lib'*, 'path', 'script', '(YOUR PATH)'
     output = "script" #Location of extraction output | 'script' by default makes 'Output' folder in the current working directory
+    resolution = "Best"
+    bitrate = "Default"
 
 
     import os
@@ -30,13 +32,35 @@ try:
     joinp = os.path.join
     cwd = os.getcwd()
 
+    resolutions = ["Best", "2160p", "1440p", "1080p", "720p", "480p", "360p", "240p", "144p"]
+    bitrates = ["Default", "320k", "256k", "192k", "128k", "96k", "64k"]
+    preset_formats = ["mp3", "aac", "mp4", "mkv"]
+    audio_formats = ["mp3", "aac", "m4a", "opus", "vorbis", "flac", "wav"]
+    lossy_audio_formats = ["mp3", "aac", "m4a", "opus", "vorbis"]
+    recode_formats = ["mov", "avi", "gif"]
+    time_re = re.compile(r'^(?:\d+:){0,2}\d+(?:\.\d+)?$')
 
-    configs = joinp(cwd, "gui-config.json")
 
+    APP_DIRNAME = "YtdlpDownloader"
+    def default_config_dir():
+        home = os.path.expanduser("~")
+        if sys.platform.startswith("win"):
+            base = os.environ.get("APPDATA") or joinp(home, "AppData", "Roaming")
+            return joinp(base, APP_DIRNAME)
+        if sys.platform == "darwin":
+            return joinp(home, "Library", "Application Support", APP_DIRNAME)
+        base = os.environ.get("XDG_CONFIG_HOME") or joinp(home, ".config")
+        return joinp(base, "yt-dlp-downloader")
+
+    cfgdir = default_config_dir()
+    configs = joinp(cfgdir, "gui-config.json")
+
+    if not os.path.isdir(cfgdir):
+        os.makedirs(cfgdir)
     if not os.path.isfile(configs):
         configs = open(configs, 'x').name
         with open(configs, 'w') as c:
-            c.write('{\n   "format":"'+fileformats[0]+'",\n   "output":"'+output+'",\n   "metadata":'+str(metadata).lower()+',\n   "ytdlplocate":"'+ytdlplocate+'"\n}')
+            c.write('{\n   "format":"'+fileformats[0]+'",\n   "output":"'+output+'",\n   "metadata":'+str(metadata).lower()+',\n   "ytdlplocate":"'+ytdlplocate+'",\n   "resolution":"'+resolution+'",\n   "bitrate":"'+bitrate+'"\n}')
 
     try:
         with open(configs) as c:
@@ -45,9 +69,23 @@ try:
             output = jsconfig['output']
             metadata = jsconfig['metadata']
             ytdlplocate = jsconfig['ytdlplocate']
+            resolution = jsconfig.get('resolution', resolution)
+            bitrate = jsconfig.get('bitrate', bitrate)
     except Exception as e:
         print(f'Config file (gui-config.json) could not be read: {e}')
         pass
+
+    resolution = str(resolution)
+    if resolution.isdigit():
+        resolution += "p"
+    if resolution not in resolutions:
+        resolution = "Best"
+
+    bitrate = str(bitrate).lower()
+    if bitrate.isdigit():
+        bitrate += "k"
+    if bitrate not in bitrates:
+        bitrate = "Default"
 
 
     defaultlocation = joinp(cwd, "Output") if output == "script" else output
@@ -195,7 +233,50 @@ try:
         console['button'].config(text="Close", command=console['window'].destroy)
         console['text'].after(0, console_append, console['text'], [(None, '[Process done]')])
 
-    def download_gui(link, place, formattie, button, proc_holder):
+    def time_to_seconds(value):
+        seconds = 0.0
+        for part in value.split(':'):
+            seconds = seconds * 60 + float(part)
+        return seconds
+
+    def validate_trim(start, end):
+        for label, value in (("start", start), ("end", end)):
+            if value and not time_re.match(value):
+                return f"Trim {label} time \"{value}\" is not valid. Use seconds (90), minutes:seconds (1:30) or hours:minutes:seconds (1:02:03)."
+        if start and end and time_to_seconds(end) <= time_to_seconds(start):
+            return "Trim end time must be later than the start time."
+        return None
+
+    def format_args(fmt, options):
+        args = []
+        if fmt in audio_formats:
+            if fmt in preset_formats:
+                args += ["-t", fmt]
+            else:
+                args += ["-x", "--audio-format", fmt]
+            if fmt in lossy_audio_formats and options['bitrate'] != "Default":
+                args += ["--audio-quality", options['bitrate'].upper()]
+        else:
+            if fmt in preset_formats:
+                args += ["-t", fmt]
+            elif fmt in recode_formats:
+                args += ["--recode-video", fmt]
+            if options['resolution'] != "Best":
+                height = options['resolution'].rstrip('p')
+                args += ["-f", f"bv*[height<={height}]+ba/b[height<={height}]/bv*+ba/b"]
+        return args
+
+    def trim_args(options):
+        start = options['start']
+        end = options['end']
+        if not start and not end:
+            return []
+        args = ["--download-sections", f"*{start or '0'}-{end or 'inf'}"]
+        if options['precise']:
+            args.append("--force-keyframes-at-cuts")
+        return args
+
+    def download_gui(link, place, formattie, button, proc_holder, controls):
         if formattie.curselection():
             formattie = [formattie.get(i) for i in formattie.curselection()][0]
         else:
@@ -204,6 +285,19 @@ try:
         url = link.get()
         output_dir = place.get()
 
+        options = {
+            'resolution': controls['resolution'].get(),
+            'bitrate': controls['bitrate'].get(),
+            'start': controls['start'].get().strip(),
+            'end': controls['end'].get().strip(),
+            'precise': controls['precise'].get()
+        }
+
+        error = validate_trim(options['start'], options['end'])
+        if error:
+            tkinter.messagebox.showerror("Yt-dlp Downloader - Trim", error)
+            return
+
         if button:
             button.config(text="Downloading... (see console)", state=tkinter.DISABLED)
 
@@ -211,7 +305,7 @@ try:
 
         def worker():
             try:
-                safe_download(url, formattie, output_dir, ytdlplocate, proc_holder, console)
+                safe_download(url, formattie, output_dir, ytdlplocate, proc_holder, console, options)
             finally:
                 if button:
                     button.after(0, lambda: button.config(text="Download", state=tkinter.NORMAL))
@@ -235,16 +329,15 @@ try:
         except Exception as e:
             console['text'].after(0, console_append, console['text'], [(None, f'[Could not interrupt: {e}]')])
 
-    def download(url, fmt, output_dir, yt_dlp_exe, proc_holder, console):
+    def download(url, fmt, output_dir, yt_dlp_exe, proc_holder, console, options):
         url = url.replace('www.', '')
         args = yt_dlp_exe+[
                 '--color', 'always',
                 '-P', output_dir
                 ]
 
-        if not fmt == "webm":
-            args.append("-t")
-            args.append(fmt)
+        args += format_args(fmt, options)
+        args += trim_args(options)
 
         if metadata:
             args.append("-o")
@@ -345,14 +438,14 @@ try:
         return removed
 
 
-    def safe_download(url, fmt, output_dir, yt_dlp_exe, proc_holder, console):
+    def safe_download(url, fmt, output_dir, yt_dlp_exe, proc_holder, console, options):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
 
         before = set(os.listdir(output_dir))
         proc_holder['interrupted'] = False
         try:
-            result = download(url, fmt, output_dir, yt_dlp_exe, proc_holder, console)
+            result = download(url, fmt, output_dir, yt_dlp_exe, proc_holder, console, options)
         except KeyboardInterrupt:
             result = None
             proc_holder['interrupted'] = True
@@ -417,10 +510,68 @@ try:
 
         tkinter.Label(text="Format").pack()
 
+        formatframe = tkinter.Frame()
+
         formatlist = tkinter.StringVar()
         formatlist.set("\n".join(fileformats))
-        formatthing = tkinter.Listbox(root, listvariable=formatlist, height=len(formatlist.get().split("\n")))
-        formatthing.pack(fill=tkinter.X)
+        formatthing = tkinter.Listbox(formatframe, listvariable=formatlist, height=6, exportselection=False)
+        formatscroll = tkinter.Scrollbar(formatframe, command=formatthing.yview)
+        formatthing.config(yscrollcommand=formatscroll.set)
+        formatscroll.pack(side=tkinter.RIGHT, fill=tkinter.Y)
+        formatthing.pack(side=tkinter.LEFT, fill=tkinter.BOTH, expand=True)
+        formatthing.selection_set(0)
+
+        formatframe.pack(fill=tkinter.X)
+
+
+        optionsframe = tkinter.Frame()
+
+        optionsframe.grid_columnconfigure(1, weight=1)
+        optionsframe.grid_columnconfigure(2, weight=1)
+
+        tkinter.Label(optionsframe, text="Resolution").grid(column=1, row=0, sticky="WE")
+        tkinter.Label(optionsframe, text="Audio bitrate").grid(column=2, row=0, sticky="WE")
+
+        resolutionbox = tkinter.ttk.Combobox(optionsframe, values=resolutions, state="readonly", width=12)
+        resolutionbox.set(resolution)
+        resolutionbox.grid(column=1, row=1, sticky="WE")
+
+        bitratebox = tkinter.ttk.Combobox(optionsframe, values=bitrates, state="readonly", width=12)
+        bitratebox.set(bitrate)
+        bitratebox.grid(column=2, row=1, sticky="WE")
+
+        def refresh_options(*args):
+            selected = formatthing.curselection()
+            chosen = formatthing.get(selected[0]) if selected else fileformats[0]
+            resolutionbox.config(state="disabled" if chosen in audio_formats else "readonly")
+            bitratebox.config(state="readonly" if chosen in lossy_audio_formats else "disabled")
+
+        formatthing.bind("<<ListboxSelect>>", refresh_options)
+        refresh_options()
+
+        optionsframe.pack(fill=tkinter.X)
+
+
+        trimframe = tkinter.Frame()
+
+        trimframe.grid_columnconfigure(1, weight=1)
+        trimframe.grid_columnconfigure(2, weight=1)
+
+        tkinter.Label(trimframe, text="Trim start (h:m:s)").grid(column=1, row=0, sticky="WE")
+        tkinter.Label(trimframe, text="Trim end (h:m:s)").grid(column=2, row=0, sticky="WE")
+
+        startthing = tkinter.Entry(trimframe, width=12)
+        startthing.grid(column=1, row=1, sticky="WE")
+
+        endthing = tkinter.Entry(trimframe, width=12)
+        endthing.grid(column=2, row=1, sticky="WE")
+
+        precisevar = tkinter.BooleanVar(value=False)
+        tkinter.Checkbutton(trimframe, text="Precise cuts (slower, re-encodes)", variable=precisevar).grid(column=1, columnspan=2, row=2)
+
+        trimframe.pack(fill=tkinter.X)
+
+        controls = {'resolution': resolutionbox, 'bitrate': bitratebox, 'start': startthing, 'end': endthing, 'precise': precisevar}
 
 
         metadataframe = tkinter.Frame()
@@ -468,7 +619,7 @@ try:
         tkinter.ttk.Separator().pack(fill=tkinter.X)
 
         downl = tkinter.Button(text="Download", font=(("Arial", 15, "bold")))
-        downl.config(command=lambda:download_gui(urlthing, outputthing, formatthing, downl, proc_holder))
+        downl.config(command=lambda:download_gui(urlthing, outputthing, formatthing, downl, proc_holder, controls))
         downl.pack(expand=True, fill=tkinter.X)
 
         root.focus_force()
