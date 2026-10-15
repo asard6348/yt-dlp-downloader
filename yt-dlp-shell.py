@@ -371,33 +371,41 @@ def main():
         if not user_fmt:
             user_fmt = "" if prevfmt is None else prevfmt
         prevfmt = user_fmt
-        if user_fmt not in audio_formats:
-            cmds = resolutions
-            resolution = ask_choice(f'Resolution (empty for {resolution}): ', resolution, normalize_resolution, resolutions)
-        if user_fmt in lossy_audio_formats:
-            cmds = bitrates
-            bitrate = ask_choice(f'Audio bitrate (empty for {bitrate}): ', bitrate, normalize_bitrate, bitrates)
-        cmds = []
-        while True:
-            trim_start = input('Trim start (h:m:s, empty for none): ').strip()
-            trim_end = input('Trim end (h:m:s, empty for none): ').strip()
-            trim_error = validate_trim(trim_start, trim_end)
-            if not trim_error:
-                break
-            print(trim_error)
-        precise = False
-        if trim_start or trim_end:
-            cmds = ['y','n']
-            precise = input('Precise cuts? Slower, re-encodes (y/N): ').lower().startswith('y')
-        options = {'resolution': resolution, 'bitrate': bitrate, 'start': trim_start, 'end': trim_end, 'precise': precise}
         if savedc:
             edit_config(configs, user_fmt, outp, metadata, ytdlploc, resolution, bitrate)
-        cmds = urls
-        autopath = False
-        url = input('URL: ')
-        urls.insert(0, url)
-        safe_download(url, user_fmt, output, yt_dlp_exe, metadata, options)
-        print()
+        try:
+            if user_fmt not in audio_formats:
+                cmds = resolutions
+                resolution = ask_choice(f'Resolution (empty for {resolution}): ', resolution, normalize_resolution, resolutions)
+            if user_fmt in lossy_audio_formats:
+                cmds = bitrates
+                bitrate = ask_choice(f'Audio bitrate (empty for {bitrate}): ', bitrate, normalize_bitrate, bitrates)
+            if savedc:
+                edit_config(configs, user_fmt, outp, metadata, ytdlploc, resolution, bitrate)
+            cmds = []
+            while True:
+                trim_start = input('Trim start (h:m:s, empty for none): ').strip()
+                trim_end = input('Trim end (h:m:s, empty for none): ').strip()
+                trim_error = validate_trim(trim_start, trim_end)
+                if not trim_error:
+                    break
+                print(trim_error)
+            precise = False
+            if trim_start or trim_end:
+                cmds = ['y','n']
+                precise = input('Precise cuts? Slower, re-encodes (y/N): ').lower().startswith('y')
+            options = {'resolution': resolution, 'bitrate': bitrate, 'start': trim_start, 'end': trim_end, 'precise': precise}
+            if savedc:
+                edit_config(configs, user_fmt, outp, metadata, ytdlploc, resolution, bitrate)
+            cmds = urls
+            autopath = False
+            url = input('URL: ')
+            urls.insert(0, url)
+            safe_download(url, user_fmt, output, yt_dlp_exe, metadata, options)
+            print()
+        except KeyboardInterrupt:
+            print()
+            continue
 
 
 if __name__ == '__main__':

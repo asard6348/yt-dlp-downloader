@@ -2,7 +2,7 @@
 
 try:
     #CONFIGURATION
-    fileformats = ["webm", "mkv", "aac", "mp4", "mp3", "m4a", "opus", "vorbis", "flac", "wav", "mov", "avi", "gif"] #Default formats sequence
+    fileformats = ["webm", "webp", "mkv", "aac", "mp4", "mp3", "m4a", "opus", "vorbis", "flac", "wav", "mov", "avi", "gif"] #Default formats sequence
     metadata = True #Whether to keep metadata in files by default | True by default
     ytdlplocate = "lib" #Location of yt-dlp | Options: *'lib'*, 'path', 'script', '(YOUR PATH)'
     output = "script" #Location of extraction output | 'script' by default makes 'Output' folder in the current working directory
