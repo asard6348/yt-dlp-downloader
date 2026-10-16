@@ -8,6 +8,7 @@ try:
     output = "script" #Location of extraction output | 'script' by default makes 'Output' folder in the current working directory
     resolution = "Best"
     bitrate = "Default"
+    impersonate = "Auto"
 
 
     import os
@@ -60,7 +61,7 @@ try:
     if not os.path.isfile(configs):
         configs = open(configs, 'x').name
         with open(configs, 'w') as c:
-            c.write('{\n   "format":"'+fileformats[0]+'",\n   "output":"'+output+'",\n   "metadata":'+str(metadata).lower()+',\n   "ytdlplocate":"'+ytdlplocate+'",\n   "resolution":"'+resolution+'",\n   "bitrate":"'+bitrate+'"\n}')
+            c.write('{\n   "format":"'+fileformats[0]+'",\n   "output":"'+output+'",\n   "metadata":'+str(metadata).lower()+',\n   "ytdlplocate":"'+ytdlplocate+'",\n   "resolution":"'+resolution+'",\n   "bitrate":"'+bitrate+'",\n   "impersonate":"'+impersonate+'"\n}')
 
     try:
         with open(configs) as c:
@@ -71,6 +72,7 @@ try:
             ytdlplocate = jsconfig['ytdlplocate']
             resolution = jsconfig.get('resolution', resolution)
             bitrate = jsconfig.get('bitrate', bitrate)
+            impersonate = str(jsconfig.get('impersonate', impersonate))
     except Exception as e:
         print(f'Config file (gui-config.json) could not be read: {e}')
         pass
@@ -104,7 +106,7 @@ try:
         except ImportError:
             ytdlplocate = "path"
             print("yt-dlp lib could not be imported.")
-    
+
     if ytdlplocate == "path":
         on_path = shutil.which('yt-dlp')
         if on_path:
@@ -130,6 +132,55 @@ try:
         startup_message = f"Using yt-dlp at: {ytdlplocate[0]}"
 
     print(startup_message)
+
+    def normalize_impersonate(value, options):
+        value = str(value).strip().lower()
+        for option in options:
+            if option.lower() == value:
+                return option
+        return None
+
+
+    def list_impersonate_targets(yt_dlp_exe):
+        try:
+            out = subprocess.run(yt_dlp_exe + ['--list-impersonate-targets'], capture_output=True, text=True, timeout=30, creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0).stdout
+        except Exception:
+            return []
+        targets = []
+        started = False
+        for line in out.splitlines():
+            if line.startswith('--'):
+                started = True
+                continue
+            if not started or not line.strip() or '(unavailable)' in line:
+                continue
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            target = parts[0].lower()
+            if parts[1] != '-':
+                target += ':' + parts[1].lower()
+            if target not in targets:
+                targets.append(target)
+        return targets
+
+
+    def impersonate_options(targets):
+        return ["Off", "Auto"] + targets if targets else ["Off"]
+
+
+    def impersonate_args(options):
+        value = options['impersonate']
+        if value == "Off":
+            return []
+        if value == "Auto":
+            return ["--extractor-args", "generic:impersonate"]
+        return ["--impersonate", value]
+
+    imp_options = impersonate_options(list_impersonate_targets(ytdlplocate))
+    impersonate = normalize_impersonate(impersonate, imp_options) or "Off"
+    if len(imp_options) == 1:
+        print('Impersonation unavailable. Install curl_cffi: pip install "yt-dlp[curl-cffi]"')
 
 
     def bring_picker(widget):
@@ -184,9 +235,9 @@ try:
                         interrupt_gui(proc_holder, console)
             else:
                 win.destroy()
-        
+
         win.protocol("WM_DELETE_WINDOW", lambda:on_close(console))
-        
+
         if edit:
             button = tkinter.Button(win, text="Close")
         else:
@@ -290,7 +341,8 @@ try:
             'bitrate': controls['bitrate'].get(),
             'start': controls['start'].get().strip(),
             'end': controls['end'].get().strip(),
-            'precise': controls['precise'].get()
+            'precise': controls['precise'].get(),
+            'impersonate': controls['impersonate'].get()
         }
 
         error = validate_trim(options['start'], options['end'])
@@ -338,6 +390,7 @@ try:
 
         args += format_args(fmt, options)
         args += trim_args(options)
+        args += impersonate_args(options)
 
         if metadata:
             args.append("-o")
@@ -494,7 +547,7 @@ try:
         def textchange(*args):
             txt = outputtext.get()
             outputthing.config(width=max(len(txt)+3, 35))
-        
+
         outputtext = tkinter.StringVar()
         outputtext.trace_add("write", textchange)
 
@@ -540,6 +593,12 @@ try:
         bitratebox.set(bitrate)
         bitratebox.grid(column=2, row=1, sticky="WE")
 
+        tkinter.Label(optionsframe, text="Impersonate").grid(column=1, columnspan=2, row=2, sticky="WE")
+
+        impersonatebox = tkinter.ttk.Combobox(optionsframe, values=imp_options, state="readonly" if len(imp_options) > 1 else "disabled", width=12)
+        impersonatebox.set(impersonate)
+        impersonatebox.grid(column=1, columnspan=2, row=3, sticky="WE")
+
         def refresh_options(*args):
             selected = formatthing.curselection()
             chosen = formatthing.get(selected[0]) if selected else fileformats[0]
@@ -571,7 +630,7 @@ try:
 
         trimframe.pack(fill=tkinter.X)
 
-        controls = {'resolution': resolutionbox, 'bitrate': bitratebox, 'start': startthing, 'end': endthing, 'precise': precisevar}
+        controls = {'resolution': resolutionbox, 'bitrate': bitratebox, 'start': startthing, 'end': endthing, 'precise': precisevar, 'impersonate': impersonatebox}
 
 
         metadataframe = tkinter.Frame()
@@ -611,7 +670,7 @@ try:
                     if con['text'].edit_modified():
                         con['button'].config(text='Save')
                 con['text'].bind("<<Modified>>", coc)
-                
+
             configholder = {'process': None, 'interrupted': False}
             openconfig = tkinter.Button(text="Open config file", command=opc)
             openconfig.pack(fill=tkinter.X)
@@ -624,7 +683,7 @@ try:
 
         root.focus_force()
         urlthing.focus_set()
-        
+
         root.mainloop()
 
 

@@ -34,10 +34,10 @@ recode_formats = ["mov", "avi", "gif"]
 time_re = re.compile(r'^(?:\d+:){0,2}\d+(?:\.\d+)?$')
 
 
-def edit_config(configs, frmt, outp, metadata, ytdlploc, resolution, bitrate):
+def edit_config(configs, frmt, outp, metadata, ytdlploc, resolution, bitrate, impersonate):
     os.makedirs(os.path.dirname(configs), exist_ok=True)
     with open(configs, 'w', encoding='utf-8') as c:
-        json.dump({'format': frmt, 'output': outp, 'metadata': bool(metadata), 'ytdlplocate': ytdlploc, 'resolution': resolution, 'bitrate': bitrate}, c, indent=4)
+        json.dump({'format': frmt, 'output': outp, 'metadata': bool(metadata), 'ytdlplocate': ytdlploc, 'resolution': resolution, 'bitrate': bitrate, 'impersonate': impersonate}, c, indent=4)
 
 
 def normalize_resolution(value):
@@ -56,6 +56,51 @@ def normalize_bitrate(value):
     if value.isdigit():
         value += "k"
     return value if value in bitrates else None
+
+
+def normalize_impersonate(value, options):
+    value = str(value).strip().lower()
+    for option in options:
+        if option.lower() == value:
+            return option
+    return None
+
+
+def list_impersonate_targets(yt_dlp_exe):
+    try:
+        out = subprocess.run(yt_dlp_exe + ['--list-impersonate-targets'], capture_output=True, text=True, timeout=30).stdout
+    except Exception:
+        return []
+    targets = []
+    started = False
+    for line in out.splitlines():
+        if line.startswith('--'):
+            started = True
+            continue
+        if not started or not line.strip() or '(unavailable)' in line:
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        target = parts[0].lower()
+        if parts[1] != '-':
+            target += ':' + parts[1].lower()
+        if target not in targets:
+            targets.append(target)
+    return targets
+
+
+def impersonate_options(targets):
+    return ["Off", "Auto"] + targets if targets else ["Off"]
+
+
+def impersonate_args(options):
+    value = options['impersonate']
+    if value == "Off":
+        return []
+    if value == "Auto":
+        return ["--extractor-args", "generic:impersonate"]
+    return ["--impersonate", value]
 
 
 def ask_choice(prompt, current, normalize, options):
@@ -128,7 +173,7 @@ def resolve_yt_dlp(ytdlplocate, cwd, joinp):
             message = "Using imported yt-dlp library."
         except ImportError:
             ytdlplocate = "path"
-    
+
     if ytdlplocate == "path":
         on_path = shutil.which('yt-dlp')
         if on_path:
@@ -163,6 +208,7 @@ def download(url, fmt, output_dir, yt_dlp_exe, mtd, options):
 
     args += format_args(fmt, options)
     args += trim_args(options)
+    args += impersonate_args(options)
 
     if mtd:
         args.append("-o")
@@ -227,6 +273,7 @@ def main():
     configs = "home" #Config file location | 'home' by default points in appdata, .config or library; 'script' in the current working directory
     resolution = "Best"
     bitrate = "Default"
+    impersonate = "Auto"
 
     ytdlploc = ytdlplocate
     outp = output
@@ -323,7 +370,7 @@ def main():
 
     cfgdir = default_config_dir()
     configs = joinp((cfgdir if configs == "home" else cwd if configs == "script" else configs), "shell-config.json")
-    
+
     cfg_data, newc = fetch_config(configs)
     if cfg_data:
         frmt = cfg_data.get('format', frmt)
@@ -335,12 +382,18 @@ def main():
         ytdlploc = ytdlplocate
         resolution = normalize_resolution(cfg_data.get('resolution', resolution)) or "Best"
         bitrate = normalize_bitrate(cfg_data.get('bitrate', bitrate)) or "Default"
+        impersonate = str(cfg_data.get('impersonate', impersonate))
 
     outp = output
     output = joinp(cwd, "Output") if output == "script" else output
     yt_dlp_exe, startup_msg = resolve_yt_dlp(ytdlplocate, cwd, joinp)
 
     print(startup_msg)
+
+    imp_options = impersonate_options(list_impersonate_targets(yt_dlp_exe))
+    impersonate = normalize_impersonate(impersonate, imp_options) or "Off"
+    if len(imp_options) == 1:
+        print('Impersonation unavailable. Install curl_cffi: pip install "yt-dlp[curl-cffi]"')
 
     urls = []
     prevfmt = None if newc else frmt
@@ -360,7 +413,7 @@ def main():
             autopath = False
             metadata = not input('Embed metadata? (Y/n): ').lower().startswith('n')
             if input('Save settings? (y/N): ').lower().startswith('y'):
-                edit_config(configs, frmt, outp, metadata, ytdlploc, resolution, bitrate)
+                edit_config(configs, frmt, outp, metadata, ytdlploc, resolution, bitrate, impersonate)
                 savedc = True
             newc = False
         else:
@@ -372,7 +425,7 @@ def main():
             user_fmt = "" if prevfmt is None else prevfmt
         prevfmt = user_fmt
         if savedc:
-            edit_config(configs, user_fmt, outp, metadata, ytdlploc, resolution, bitrate)
+            edit_config(configs, user_fmt, outp, metadata, ytdlploc, resolution, bitrate, impersonate)
         try:
             if user_fmt not in audio_formats:
                 cmds = resolutions
@@ -380,8 +433,11 @@ def main():
             if user_fmt in lossy_audio_formats:
                 cmds = bitrates
                 bitrate = ask_choice(f'Audio bitrate (empty for {bitrate}): ', bitrate, normalize_bitrate, bitrates)
+            if len(imp_options) > 1:
+                cmds = imp_options
+                impersonate = ask_choice(f'Impersonate (empty for {impersonate}): ', impersonate, lambda v: normalize_impersonate(v, imp_options), imp_options)
             if savedc:
-                edit_config(configs, user_fmt, outp, metadata, ytdlploc, resolution, bitrate)
+                edit_config(configs, user_fmt, outp, metadata, ytdlploc, resolution, bitrate, impersonate)
             cmds = []
             while True:
                 trim_start = input('Trim start (h:m:s, empty for none): ').strip()
@@ -394,9 +450,9 @@ def main():
             if trim_start or trim_end:
                 cmds = ['y','n']
                 precise = input('Precise cuts? Slower, re-encodes (y/N): ').lower().startswith('y')
-            options = {'resolution': resolution, 'bitrate': bitrate, 'start': trim_start, 'end': trim_end, 'precise': precise}
+            options = {'resolution': resolution, 'bitrate': bitrate, 'start': trim_start, 'end': trim_end, 'precise': precise, 'impersonate': impersonate}
             if savedc:
-                edit_config(configs, user_fmt, outp, metadata, ytdlploc, resolution, bitrate)
+                edit_config(configs, user_fmt, outp, metadata, ytdlploc, resolution, bitrate, impersonate)
             cmds = urls
             autopath = False
             url = input('URL: ')
