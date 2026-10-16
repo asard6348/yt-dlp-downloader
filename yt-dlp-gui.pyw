@@ -560,10 +560,17 @@ try:
 
         locationframe.pack(fill=tkinter.X)
 
+        tkinter.ttk.Separator().pack(fill=tkinter.X)
 
-        tkinter.Label(text="Format").pack()
+        advancedbutton = tkinter.Button(text="Expand", font=(("Arial", 11, "bold")), command=lambda:toggle_advanced())
+        advancedbutton.pack(fill=tkinter.X)
 
-        formatframe = tkinter.Frame()
+        advancedframe = tkinter.Frame()
+
+
+        tkinter.Label(advancedframe, text="Format").pack()
+
+        formatframe = tkinter.Frame(advancedframe)
 
         formatlist = tkinter.StringVar()
         formatlist.set("\n".join(fileformats))
@@ -577,7 +584,7 @@ try:
         formatframe.pack(fill=tkinter.X)
 
 
-        optionsframe = tkinter.Frame()
+        optionsframe = tkinter.Frame(advancedframe)
 
         optionsframe.grid_columnconfigure(1, weight=1)
         optionsframe.grid_columnconfigure(2, weight=1)
@@ -611,7 +618,7 @@ try:
         optionsframe.pack(fill=tkinter.X)
 
 
-        trimframe = tkinter.Frame()
+        trimframe = tkinter.Frame(advancedframe)
 
         trimframe.grid_columnconfigure(1, weight=1)
         trimframe.grid_columnconfigure(2, weight=1)
@@ -633,7 +640,7 @@ try:
         controls = {'resolution': resolutionbox, 'bitrate': bitratebox, 'start': startthing, 'end': endthing, 'precise': precisevar, 'impersonate': impersonatebox}
 
 
-        metadataframe = tkinter.Frame()
+        metadataframe = tkinter.Frame(advancedframe)
 
         metadataframe.grid_columnconfigure(1, weight=1)
         metadataframe.grid_columnconfigure(2, weight=1)
@@ -650,7 +657,7 @@ try:
 
         metadataframe.pack(fill=tkinter.X)
 
-        tkinter.ttk.Separator().pack(fill=tkinter.X)
+        tkinter.ttk.Separator(advancedframe).pack(fill=tkinter.X)
 
         if os.path.exists(configs):
             def opc(*args):
@@ -672,10 +679,19 @@ try:
                 con['text'].bind("<<Modified>>", coc)
 
             configholder = {'process': None, 'interrupted': False}
-            openconfig = tkinter.Button(text="Open config file", command=opc)
+            openconfig = tkinter.Button(advancedframe, text="Open config file", command=opc)
             openconfig.pack(fill=tkinter.X)
 
-        tkinter.ttk.Separator().pack(fill=tkinter.X)
+        endsep = tkinter.ttk.Separator()
+        endsep.pack(fill=tkinter.X)
+
+        def toggle_advanced():
+            if advancedframe.winfo_manager():
+                advancedframe.pack_forget()
+                advancedbutton.config(text="Expand")
+            else:
+                advancedframe.pack(fill=tkinter.X, before=endsep)
+                advancedbutton.config(text="Collapse")
 
         downl = tkinter.Button(text="Download", font=(("Arial", 15, "bold")))
         downl.config(command=lambda:download_gui(urlthing, outputthing, formatthing, downl, proc_holder, controls))
