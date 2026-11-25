@@ -184,6 +184,35 @@ try:
             return ["--impersonate", ""]
         return ["--impersonate", value]
 
+    def build_impersonate_candidates(options, available_targets=None, tried=None):
+        tried_set = {str(t).lower() for t in (tried or set())}
+        targets = [t for t in (available_targets or []) if t.lower() not in tried_set]
+        preferred_browser = options.get('cookies')
+        browser_order = ["firefox", "safari", "edge", "chrome", "brave", "opera", "vivaldi"]
+        if preferred_browser and preferred_browser.lower() in browser_order:
+            browser_order.remove(preferred_browser.lower())
+            browser_order.insert(0, preferred_browser.lower())
+
+        def family_rank(target):
+            t_low = target.lower()
+            for idx, fam in enumerate(browser_order):
+                if t_low.startswith(fam):
+                    return idx
+            return len(browser_order)
+
+        ranked = sorted(targets, key=family_rank)
+        candidates = []
+        current = str(options.get('impersonate', 'Off'))
+        if current not in ("Off", "Auto") and current.lower() not in tried_set:
+            candidates.append(current)
+        for target in ranked:
+            if target not in candidates:
+                candidates.append(target)
+        return candidates
+
+    def has_client_challenge(line):
+        return "got client challenge webpage response" in line.lower()
+
     def cookie_args(options):
         browser = options.get('cookies')
         if not browser or browser == "None":
@@ -424,6 +453,8 @@ try:
 
         args.append(url)
 
+        proc_holder['challenge_detected'] = False
+
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         popen_kwargs = {'stdout': subprocess.PIPE, 'stderr': subprocess.STDOUT, 'bufsize': 0, 'creationflags': creationflags}
         if os.name != 'nt':
@@ -440,6 +471,8 @@ try:
         def flush_buf():
             nonlocal buf
             if buf:
+                if has_client_challenge(buf):
+                    proc_holder['challenge_detected'] = True
                 segments.append((ansi_tag(fg, bold), buf))
                 buf = ''
 
@@ -506,6 +539,29 @@ try:
         return removed
 
 
+    def download_with_impersonate_fallback(url, fmt, output_dir, yt_dlp_exe, proc_holder, console, options):
+        result = download(url, fmt, output_dir, yt_dlp_exe, proc_holder, console, options)
+        if proc_holder.get('interrupted') or not proc_holder.get('challenge_detected') or result == 0:
+            return result
+
+        available_targets = [t for t in imp_options if t not in ("Off", "Auto")]
+        tried = {str(options.get('impersonate', '')).lower()}
+        candidates = build_impersonate_candidates(options, available_targets=available_targets, tried=tried)
+
+        for candidate in candidates:
+            if proc_holder.get('interrupted'):
+                break
+            tried.add(candidate.lower())
+            retry_options = dict(options)
+            retry_options['impersonate'] = candidate
+            console['text'].after(0, console_append, console['text'], [(None, f'[Client challenge detected; retrying with impersonate={candidate}]')])
+            result = download(url, fmt, output_dir, yt_dlp_exe, proc_holder, console, retry_options)
+            if proc_holder.get('interrupted') or result == 0 or not proc_holder.get('challenge_detected'):
+                break
+
+        return result
+
+
     def safe_download(url, fmt, output_dir, yt_dlp_exe, proc_holder, console, options):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
@@ -513,7 +569,7 @@ try:
         before = set(os.listdir(output_dir))
         proc_holder['interrupted'] = False
         try:
-            result = download(url, fmt, output_dir, yt_dlp_exe, proc_holder, console, options)
+            result = download_with_impersonate_fallback(url, fmt, output_dir, yt_dlp_exe, proc_holder, console, options)
         except KeyboardInterrupt:
             result = None
             proc_holder['interrupted'] = True
