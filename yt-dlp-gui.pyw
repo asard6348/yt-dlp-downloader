@@ -615,18 +615,6 @@ try:
         bitratebox.set(bitrate)
         bitratebox.grid(column=2, row=1, sticky="WE")
 
-        tkinter.Label(optionsframe, text="Impersonate").grid(column=1, columnspan=2, row=2, sticky="WE")
-
-        impersonatebox = tkinter.ttk.Combobox(optionsframe, values=imp_options, state="readonly" if len(imp_options) > 1 else "disabled", width=12)
-        impersonatebox.set(impersonate)
-        impersonatebox.grid(column=1, columnspan=2, row=3, sticky="WE")
-
-        tkinter.Label(optionsframe, text="Cookies from browser").grid(column=1, columnspan=2, row=4, sticky="WE")
-
-        cookiesbox = tkinter.ttk.Combobox(optionsframe, values=COOKIE_BROWSERS, state="readonly", width=12)
-        cookiesbox.set(cookies)
-        cookiesbox.grid(column=1, columnspan=2, row=5, sticky="WE")
-
         def refresh_options(*args):
             selected = formatthing.curselection()
             chosen = formatthing.get(selected[0]) if selected else fileformats[0]
@@ -657,6 +645,26 @@ try:
         tkinter.Checkbutton(trimframe, text="Precise cuts (slower, re-encodes)", variable=precisevar).grid(column=1, columnspan=2, row=2)
 
         trimframe.pack(fill=tkinter.X)
+
+
+        impersonateframe = tkinter.Frame(advancedframe)
+
+        impersonateframe.grid_columnconfigure(1, weight=1)
+        impersonateframe.grid_columnconfigure(2, weight=1)
+
+        tkinter.Label(impersonateframe, text="Impersonate").grid(column=1, columnspan=2, row=0, sticky="WE")
+
+        impersonatebox = tkinter.ttk.Combobox(impersonateframe, values=imp_options, state="readonly" if len(imp_options) > 1 else "disabled", width=12)
+        impersonatebox.set(impersonate)
+        impersonatebox.grid(column=1, columnspan=2, row=1, sticky="WE")
+
+        tkinter.Label(impersonateframe, text="Cookies from browser").grid(column=1, columnspan=2, row=2, sticky="WE")
+
+        cookiesbox = tkinter.ttk.Combobox(impersonateframe, values=COOKIE_BROWSERS, state="readonly", width=12)
+        cookiesbox.set(cookies)
+        cookiesbox.grid(column=1, columnspan=2, row=3, sticky="WE")
+
+        impersonateframe.pack(fill=tkinter.X)
 
         controls = {'resolution': resolutionbox, 'bitrate': bitratebox, 'start': startthing, 'end': endthing, 'precise': precisevar, 'impersonate': impersonatebox, 'cookies': cookiesbox}
 
