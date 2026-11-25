@@ -8,7 +8,8 @@ try:
     output = "script" #Location of extraction output | 'script' by default makes 'Output' folder in the current working directory
     resolution = "Best"
     bitrate = "Default"
-    impersonate = "Auto"
+    impersonate = "Off"
+    cookies = "None"
 
 
     import os
@@ -35,6 +36,7 @@ try:
 
     resolutions = ["Best", "2160p", "1440p", "1080p", "720p", "480p", "360p", "240p", "144p"]
     bitrates = ["Default", "320k", "256k", "192k", "128k", "96k", "64k"]
+    COOKIE_BROWSERS = ["None", "firefox", "chrome", "edge", "brave", "opera", "vivaldi", "safari"]
     preset_formats = ["mp3", "aac", "mp4", "mkv"]
     audio_formats = ["mp3", "aac", "m4a", "opus", "vorbis", "flac", "wav"]
     lossy_audio_formats = ["mp3", "aac", "m4a", "opus", "vorbis"]
@@ -61,7 +63,7 @@ try:
     if not os.path.isfile(configs):
         configs = open(configs, 'x').name
         with open(configs, 'w') as c:
-            c.write('{\n   "format":"'+fileformats[0]+'",\n   "output":"'+output+'",\n   "metadata":'+str(metadata).lower()+',\n   "ytdlplocate":"'+ytdlplocate+'",\n   "resolution":"'+resolution+'",\n   "bitrate":"'+bitrate+'",\n   "impersonate":"'+impersonate+'"\n}')
+            c.write('{\n   "format":"'+fileformats[0]+'",\n   "output":"'+output+'",\n   "metadata":'+str(metadata).lower()+',\n   "ytdlplocate":"'+ytdlplocate+'",\n   "resolution":"'+resolution+'",\n   "bitrate":"'+bitrate+'",\n   "impersonate":"'+impersonate+'",\n   "cookies":"'+cookies+'"\n}')
 
     try:
         with open(configs) as c:
@@ -73,6 +75,7 @@ try:
             resolution = jsconfig.get('resolution', resolution)
             bitrate = jsconfig.get('bitrate', bitrate)
             impersonate = str(jsconfig.get('impersonate', impersonate))
+            cookies = str(jsconfig.get('cookies', cookies))
     except Exception as e:
         print(f'Config file (gui-config.json) could not be read: {e}')
         pass
@@ -88,6 +91,10 @@ try:
         bitrate += "k"
     if bitrate not in bitrates:
         bitrate = "Default"
+
+    cookies = str(cookies).strip()
+    if cookies not in COOKIE_BROWSERS:
+        cookies = "None"
 
 
     defaultlocation = joinp(cwd, "Output") if output == "script" else output
@@ -174,8 +181,14 @@ try:
         if value == "Off":
             return []
         if value == "Auto":
-            return ["--extractor-args", "generic:impersonate"]
+            return ["--impersonate", ""]
         return ["--impersonate", value]
+
+    def cookie_args(options):
+        browser = options.get('cookies')
+        if not browser or browser == "None":
+            return []
+        return ["--cookies-from-browser", browser]
 
     imp_options = impersonate_options(list_impersonate_targets(ytdlplocate))
     impersonate = normalize_impersonate(impersonate, imp_options) or "Off"
@@ -342,7 +355,8 @@ try:
             'start': controls['start'].get().strip(),
             'end': controls['end'].get().strip(),
             'precise': controls['precise'].get(),
-            'impersonate': controls['impersonate'].get()
+            'impersonate': controls['impersonate'].get(),
+            'cookies': controls['cookies'].get()
         }
 
         error = validate_trim(options['start'], options['end'])
@@ -391,6 +405,7 @@ try:
         args += format_args(fmt, options)
         args += trim_args(options)
         args += impersonate_args(options)
+        args += cookie_args(options)
 
         if metadata:
             args.append("-o")
@@ -606,6 +621,12 @@ try:
         impersonatebox.set(impersonate)
         impersonatebox.grid(column=1, columnspan=2, row=3, sticky="WE")
 
+        tkinter.Label(optionsframe, text="Cookies from browser").grid(column=1, columnspan=2, row=4, sticky="WE")
+
+        cookiesbox = tkinter.ttk.Combobox(optionsframe, values=COOKIE_BROWSERS, state="readonly", width=12)
+        cookiesbox.set(cookies)
+        cookiesbox.grid(column=1, columnspan=2, row=5, sticky="WE")
+
         def refresh_options(*args):
             selected = formatthing.curselection()
             chosen = formatthing.get(selected[0]) if selected else fileformats[0]
@@ -637,7 +658,7 @@ try:
 
         trimframe.pack(fill=tkinter.X)
 
-        controls = {'resolution': resolutionbox, 'bitrate': bitratebox, 'start': startthing, 'end': endthing, 'precise': precisevar, 'impersonate': impersonatebox}
+        controls = {'resolution': resolutionbox, 'bitrate': bitratebox, 'start': startthing, 'end': endthing, 'precise': precisevar, 'impersonate': impersonatebox, 'cookies': cookiesbox}
 
 
         metadataframe = tkinter.Frame(advancedframe)
